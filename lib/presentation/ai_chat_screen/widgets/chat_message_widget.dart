@@ -8,6 +8,7 @@ class ChatMessageWidget extends StatelessWidget {
   final String message;
   final bool isUser;
   final DateTime timestamp;
+  final String? model; // Added model parameter
   final VoidCallback? onCopy;
   final VoidCallback? onShare;
   final VoidCallback? onGenerateReport;
@@ -17,6 +18,7 @@ class ChatMessageWidget extends StatelessWidget {
     required this.message,
     required this.isUser,
     required this.timestamp,
+    this.model, // Model that generated the response
     this.onCopy,
     this.onShare,
     this.onGenerateReport,
@@ -98,14 +100,37 @@ class ChatMessageWidget extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 1.h),
-                    Text(
-                      _formatTimestamp(timestamp),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: isUser
-                            ? theme.colorScheme.onPrimary.withValues(alpha: 0.7)
-                            : theme.colorScheme.onSurfaceVariant,
-                        fontSize: 10.sp,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _formatTimestamp(timestamp),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: isUser
+                                ? theme.colorScheme.onPrimary.withValues(alpha: 0.7)
+                                : theme.colorScheme.onSurfaceVariant,
+                            fontSize: 10.sp,
+                          ),
+                        ),
+                        if (!isUser && model != null) ...[  // Only show model for AI responses
+                          SizedBox(width: 2.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 1.5.w, vertical: 0.3.h),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(2.w),
+                            ),
+                            child: Text(
+                              model!,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontSize: 8.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

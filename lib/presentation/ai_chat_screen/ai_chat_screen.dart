@@ -13,6 +13,7 @@ import './widgets/chat_message_widget.dart';
 import './widgets/offline_indicator_widget.dart';
 import './widgets/quick_action_buttons_widget.dart';
 import './widgets/typing_indicator_widget.dart';
+import '../../services/huggingface_service.dart';
 
 class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key});
@@ -28,6 +29,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   bool _isOnline = true;
   bool _showQuickActions = true;
   int _currentBottomIndex = 2; // AI Chat tab
+  late final HuggingFaceClient _hfClient;
 
   // Mock AI responses for different health queries
   final List<Map<String, dynamic>> _mockResponses = [
@@ -66,6 +68,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   @override
   void initState() {
     super.initState();
+    _hfClient = HuggingFaceClient(HuggingFaceService().dio);
     _initializeChat();
     _checkConnectivity();
     _loadCachedMessages();
@@ -81,9 +84,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
     // Add welcome message
     _messages.add({
       'message':
-          'Hello! I\'m your AI health assistant. I can help you with health queries, symptom checking, finding doctors, and emergency assistance. How can I help you today?',
+          'Hello! I\'m your AI health assistant powered by BioMistral. I can help you with health queries, symptom checking, finding doctors, and emergency assistance. I\'m trained on medical literature to provide evidence-based information. How can I help you today?',
       'isUser': false,
       'timestamp': DateTime.now(),
+      'model': 'BioMistral',
     });
   }
 
@@ -114,6 +118,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     'message': msg['message'] as String,
                     'isUser': msg['isUser'] as bool,
                     'timestamp': DateTime.parse(msg['timestamp'] as String),
+                    'model': msg['model'] as String?, // Load model information if available
                   })
               .toList());
         });
@@ -131,6 +136,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 'message': msg['message'],
                 'isUser': msg['isUser'],
                 'timestamp': (msg['timestamp'] as DateTime).toIso8601String(),
+                'model': msg['model'], // Save model information
               })
           .toList();
       await prefs.setString('ai_chat_messages', json.encode(messageList));
@@ -158,19 +164,51 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Future<void> _generateAIResponse(String userMessage) async {
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 1500));
+    try {
+      // Convert previous messages to chat turns for context
+      final conversation = _messages
+          .map((m) => ChatTurn(
+                isUser: m['isUser'] as bool,
+                content: m['message'] as String,
+              ))
+          .toList()
+        ..add(ChatTurn(isUser: true, content: userMessage));
 
-    String response = _getContextualResponse(userMessage.toLowerCase());
+      // Determine if this is a medical query to adjust parameters
+      final isMedicalQuery = _isMedicalQuery(userMessage);
+      
+      final completion = await _hfClient.generateChatCompletion(
+        conversation: conversation,
+        parameters: {
+          // Adjust parameters based on query type
+          'max_new_tokens': isMedicalQuery ? 512 : 256,
+          'temperature': isMedicalQuery ? 0.2 : 0.3,
+          'repetition_penalty': isMedicalQuery ? 1.1 : 1.0,
+        },
+      );
 
-    setState(() {
-      _messages.add({
-        'message': response,
-        'isUser': false,
-        'timestamp': DateTime.now(),
+      setState(() {
+        _messages.add({
+          'message': completion.text,
+          'isUser': false,
+          'timestamp': DateTime.now(),
+          'model': 'BioMistral', // Track which model generated the response
+        });
+        _isLoading = false;
       });
-      _isLoading = false;
-    });
+    } catch (e) {
+      // Fallback to contextual canned response on error
+      final response = _getContextualResponse(userMessage.toLowerCase());
+      setState(() {
+        _messages.add({
+          'message': response,
+          'isUser': false,
+          'timestamp': DateTime.now(),
+          'model': 'Fallback', // Indicate this is a fallback response
+        });
+        _isLoading = false;
+      });
+    }
 
     _scrollToBottom();
     _saveCachedMessages();
@@ -187,6 +225,27 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
     // Default response for unmatched queries
     return "I understand you have a health-related question. While I can provide general health information, I recommend consulting with a qualified healthcare professional for personalized medical advice. You can:\n\n• Call 102 for medical emergencies\n• Visit your nearest hospital or clinic\n• Consult with a licensed doctor\n\nIs there something specific about your health I can help you with?";
+  }
+  
+  bool _isMedicalQuery(String query) {
+    // List of medical keywords to check against
+    final medicalKeywords = [
+      'symptom', 'disease', 'condition', 'treatment', 'medicine', 'drug',
+      'diagnosis', 'pain', 'doctor', 'hospital', 'clinic', 'prescription',
+      'health', 'medical', 'illness', 'infection', 'virus', 'bacteria',
+      'chronic', 'acute', 'emergency', 'surgery', 'procedure', 'therapy',
+      'cancer', 'diabetes', 'heart', 'blood', 'pressure', 'cholesterol',
+      'covid', 'vaccine', 'vaccination', 'immunization', 'allergy',
+      'diet', 'nutrition', 'vitamin', 'supplement', 'exercise',
+      'mental health', 'depression', 'anxiety', 'stress', 'sleep',
+      'pregnancy', 'pediatric', 'geriatric', 'specialist', 'referral'
+    ];
+    
+    // Convert query to lowercase for case-insensitive matching
+    final lowercaseQuery = query.toLowerCase();
+    
+    // Check if any medical keyword is present in the query
+    return medicalKeywords.any((keyword) => lowercaseQuery.contains(keyword));
   }
 
   void _scrollToBottom() {
@@ -383,6 +442,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     message: message['message'] as String,
                     isUser: message['isUser'] as bool,
                     timestamp: message['timestamp'] as DateTime,
+                    model: message['model'] as String?, // Pass model information
                     onCopy: () => _copyMessage(message['message'] as String),
                     onShare: () => _shareMessage(message['message'] as String),
                     onGenerateReport: _generateReport,
