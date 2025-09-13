@@ -261,14 +261,14 @@ class _PersonalInfoSectionWidgetState extends State<PersonalInfoSectionWidget> {
             ),
           ],
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 8),
         Container(
           width: double.infinity,
-          height: 50.h,
-          padding: EdgeInsets.all(12.w),
+          height: 50,
+          padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: theme.colorScheme.outline.withValues(alpha: 0.2),
             ),
@@ -284,12 +284,12 @@ class _PersonalInfoSectionWidgetState extends State<PersonalInfoSectionWidget> {
                   ),
                 )
               : Wrap(
-                  spacing: 8.w,
-                  runSpacing: 8.h,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: items.map((item) => Chip(
                     label: Text(item),
                     backgroundColor: theme.colorScheme.primaryContainer,
-                    deleteIcon: Icon(Icons.close, size: 16.w),
+                    deleteIcon: Icon(Icons.close, size: 16),
                     onDeleted: () {
                       final updatedItems = List<String>.from(items);
                       updatedItems.remove(item);

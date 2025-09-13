@@ -23,7 +23,7 @@ class SearchBarWidget extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12.0.r),
+        borderRadius: BorderRadius.circular(12.0),
         border: Border.all(
           color: theme.colorScheme.outline.withValues(alpha: 0.2),
         ),
